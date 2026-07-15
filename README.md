@@ -77,3 +77,55 @@ SkillBridge-AI/
     ├── css/style.css           # Global Stylesheets & Layout Modifiers
     ├── js/script.js            # Client-side Core Logic & API Fetch Controllers
     └── images/                 # Theme graphics
+---
+---
+
+## ⚡ Quick Start Deployment Guide
+
+### 1. Clone & Access the Workspace
+```bash
+git clone [https://github.com/your-username/skillbridge-ai.git](https://github.com/your-username/skillbridge-ai.git)
+cd skillbridge-ai
+2. Isolate Dependencies (Virtual Environment)
+Bash
+# Initialize Environment
+python -m venv venv
+
+# Activate Environment (Linux/macOS)
+source venv/bin/activate
+
+# Activate Environment (Windows)
+venv\Scripts\activate
+3. Install Module Matrix
+Bash
+pip install --upgrade pip
+pip install -r requirements.txt
+4. Inject Local Environment Configuration
+Duplicate the configuration template file into an active configuration state:
+
+Bash
+cp .env.example .env
+Populate the newly created .env parameters with your active parameters:
+
+Code snippet
+IBM_CLOUD_API_KEY=your_secure_ibm_cloud_api_key
+PROJECT_ID=your_watsonx_ai_project_guid
+MODEL_ID=ibm/granite-13b-instruct-v2
+IBM_WATSONX_URL=[https://us-south.ml.cloud.ibm.com](https://us-south.ml.cloud.ibm.com)
+FLASK_SECRET_KEY=generate_a_secure_hex_key_here
+FLASK_DEBUG=false
+PORT=5000
+5. Launch the Framework Locally
+Bash
+python app.py
+Your service instance will instantly serve requests at: http://localhost:5000
+🔑 Provisioning IBM watsonx.ai InfrastructureAccess the Cloud Console: Create an IBM Cloud Instance at cloud.ibm.com.Launch the Workspace: Spin up a new watsonx.ai workspace via the IBM Data Platform.Generate Access Signatures: Navigate through Manage $\rightarrow$ Access (IAM) $\rightarrow$ API Keys to construct a private key.Acquire Project Guid: Extract the active PROJECT_ID parameter from your workspace configuration settings page.Apply these values directly to your local .env setup file.💡 Cost Efficiency Note: The basic entry tier includes free structural monthly platform compute credits allowing you to evaluation the Granite model array completely free.⚙️ Modifying Agent Operational DirectivesThe behavior, safety rails, and response design of the system can be customized inside app.py via the AGENT_INSTRUCTIONS structure:PythonAGENT_INSTRUCTIONS = {
+    "personality": "Friendly, professional, encouraging, respectful, patient, and motivational.",
+    "tone": "Warm and supportive. Use simple, clear language. Never condescending.",
+    "language": "Respond in the same language as the user. Support English, Hindi, Hinglish.",
+    "career_guidance_style": "Provide practical, actionable career advice...",
+    "government_scheme_logic": "Always remind users to verify eligibility through official portals...",
+    "safety_rules": "Always warn against fake recruiters, paid job offers, OTP scams...",
+    "response_style": "Use bullet points, short paragraphs, emojis for section headers..."
+}
+🛡 Security Guardrails & Compliance🔒 Zero Hardcoded Secrets: Enforces strict execution containment by sourcing access tokens purely out of environmental scopes.🛡 Anti-Scam Mitigations: Programmatic filters detect high-risk phrases to automatically inject anti-fraud warning notes regarding recruitment scams and identity theft risks.🛑 Hallucination Shields: Specific validation rules prompt the model to append mandatory official registry lookup notices across all government scheme queries.📦 Payload Containment: Restricts web interface uploads strictly to a maximum size of 16MB to mitigate denial of service vectors.📄 LicensingDistributed under the MIT License. Check out LICENSE documentation file within the repository core for further information regarding open usage rights.Developed with ❤️ using IBM watsonx.ai Granite on IBM Cloud.
