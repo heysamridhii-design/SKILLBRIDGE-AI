@@ -1,0 +1,204 @@
+# SkillBridge AI 🎯
+### AI Job Mentor for Informal Workers
+**Built with IBM watsonx.ai Granite on IBM Cloud Lite**
+
+---
+
+## 🌟 About
+
+SkillBridge AI is an award-winning AI-powered career mentor platform designed to empower informal workers — including daily wage laborers, gig workers, artisans, street vendors, domestic workers, delivery partners, farmers, construction workers, and unemployed youth — to improve their careers, increase income, develop skills, and discover government support programs.
+
+---
+
+## ✨ Features
+
+| Feature | Description |
+|---------|-------------|
+| 🤖 AI Career Mentor | Powered by IBM Granite — personalized career guidance |
+| 💼 Job Recommendations | Smart matching based on skills, education, and location |
+| 🏛 Government Schemes | Discover PM schemes, eligibility, and how to apply |
+| 📚 Skill Gap Analysis | Compare current skills vs. career goals |
+| 🎯 Career Roadmap | Visual step-by-step career journey |
+| 📝 Resume Builder | ATS-friendly resume analyzer and builder |
+| 🎤 Interview Coach | Role-specific Q&A practice and confidence tips |
+| 💰 Financial Guidance | Savings, banking, digital payments, insurance |
+| 🌙 Dark Mode | Toggle between light and dark themes |
+| 🌐 Multilingual | English, Hindi, Hinglish support |
+| 🎙 Voice Input | Speak your questions using the microphone |
+| 📊 Dashboard | Track progress, saved jobs, and recommendations |
+
+---
+
+## 🛠 Tech Stack
+
+- **Backend:** Python Flask 3.x
+- **AI:** IBM watsonx.ai Granite (`ibm/granite-13b-instruct-v2`)
+- **Frontend:** Bootstrap 5, HTML5, CSS3, JavaScript (ES6+)
+- **Session:** Flask Server-Side Sessions
+- **Config:** python-dotenv (.env)
+- **Deploy:** Gunicorn (production)
+
+---
+
+## 🚀 Quick Start
+
+### 1. Clone the Repository
+
+```bash
+git clone https://github.com/your-username/skillbridge-ai.git
+cd skillbridge-ai
+```
+
+### 2. Create Virtual Environment
+
+```bash
+python -m venv venv
+# Windows
+venv\Scripts\activate
+# Linux / macOS
+source venv/bin/activate
+```
+
+### 3. Install Dependencies
+
+```bash
+pip install -r requirements.txt
+```
+
+### 4. Configure Environment Variables
+
+```bash
+cp .env.example .env
+```
+
+Edit `.env` and add your IBM credentials:
+
+```env
+IBM_CLOUD_API_KEY=your_actual_api_key
+PROJECT_ID=your_actual_project_id
+MODEL_ID=ibm/granite-13b-instruct-v2
+IBM_WATSONX_URL=https://us-south.ml.cloud.ibm.com
+FLASK_SECRET_KEY=your_strong_random_secret
+FLASK_DEBUG=false
+PORT=5000
+```
+
+### 5. Run the Application
+
+```bash
+python app.py
+```
+
+Open your browser and go to: **http://localhost:5000**
+
+---
+
+## 🔑 Getting IBM watsonx.ai Credentials
+
+1. **Create IBM Cloud Account** → [cloud.ibm.com](https://cloud.ibm.com)
+2. **Create watsonx.ai project** → [dataplatform.cloud.ibm.com](https://dataplatform.cloud.ibm.com)
+3. **Generate API Key** → IBM Cloud → Manage → Access (IAM) → API Keys
+4. **Copy Project ID** from your watsonx.ai project settings
+5. Paste both into your `.env` file
+
+> 💡 **Free Tier:** IBM Cloud Lite account includes free watsonx.ai credits.
+
+---
+
+## 📁 Project Structure
+
+```
+SkillBridge-AI/
+│── app.py                    # Flask application & API routes
+│── requirements.txt          # Python dependencies
+│── README.md                 # This file
+│── .env.example              # Environment variable template
+│
+├── services/
+│   └── granite_service.py    # IBM watsonx.ai Granite integration
+│
+├── templates/
+│   ├── index.html            # Landing page
+│   ├── dashboard.html        # User dashboard
+│   ├── chatbot.html          # AI chat interface
+│   ├── jobs.html             # Job recommendations
+│   ├── schemes.html          # Government schemes
+│   └── profile.html          # User profile builder
+│
+└── static/
+    ├── css/style.css         # Global styles & animations
+    ├── js/script.js          # Frontend logic & API calls
+    └── images/               # Local image assets
+```
+
+---
+
+## 🌐 Deployment (Production)
+
+### Gunicorn (Linux/Cloud)
+
+```bash
+gunicorn -w 4 -b 0.0.0.0:5000 app:app
+```
+
+### IBM Code Engine / Cloud Foundry
+
+1. Install IBM Cloud CLI
+2. Login: `ibmcloud login`
+3. Push: `ibmcloud cf push skillbridge-ai`
+
+### Docker
+
+```dockerfile
+FROM python:3.11-slim
+WORKDIR /app
+COPY . .
+RUN pip install -r requirements.txt
+EXPOSE 5000
+CMD ["gunicorn", "-w", "4", "-b", "0.0.0.0:5000", "app:app"]
+```
+
+---
+
+## 🔧 Customizing the AI Agent
+
+Edit the `AGENT_INSTRUCTIONS` dictionary in `app.py` to customize:
+
+```python
+AGENT_INSTRUCTIONS = {
+    "personality": "...",           # AI personality traits
+    "tone": "...",                  # Communication tone
+    "language": "...",              # Language rules
+    "career_guidance_style": "...", # Career advice approach
+    "government_scheme_logic": "...",# Scheme recommendation rules
+    "safety_rules": "...",          # Anti-scam guidelines
+    "response_style": "...",        # Output format preferences
+    "mission": "...",               # Core mission statement
+}
+```
+
+---
+
+## 🛡 Safety Features
+
+- ✅ Never hardcoded API keys (uses `.env`)
+- ✅ Warns against fake recruiters and scams
+- ✅ Government scheme verification reminders
+- ✅ Input validation on all API routes
+- ✅ Graceful error handling with friendly messages
+
+---
+
+## 📞 Support
+
+For issues or questions, open a GitHub issue or contact the development team.
+
+---
+
+## 📄 License
+
+MIT License — Free for personal and commercial use.
+
+---
+
+*Built with ❤️ using IBM watsonx.ai Granite on IBM Cloud*

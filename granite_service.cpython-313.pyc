@@ -1,0 +1,859 @@
+"""
+SkillBridge AI — IBM watsonx.ai Granite Service
+Handles all AI interactions via IBM watsonx.ai
+"""
+
+import os
+import json
+import logging
+import re
+from ibm_watsonx_ai import Credentials
+from ibm_watsonx_ai.foundation_models import ModelInference
+from ibm_watsonx_ai.metanames import GenTextParamsMetaNames as GenParams
+
+logger = logging.getLogger(__name__)
+
+
+# ─────────────────────────────────────────────
+# SYSTEM PROMPT
+# ─────────────────────────────────────────────
+SKILLBRIDGE_SYSTEM_PROMPT = """You are SkillBridge AI, an award-winning AI Job Mentor built using IBM Granite on IBM Cloud.
+
+MISSION: Empower informal workers — daily wage laborers, artisans, gig workers, street vendors, domestic workers, delivery partners, drivers, farmers, construction workers, self-employed individuals, and unemployed youth — to improve careers, increase income, develop skills, discover employment, and understand government support programs.
+
+PERSONALITY: Friendly, professional, encouraging, respectful, patient, motivational, and easy to understand.
+
+LANGUAGE RULE: Always reply in the same language used by the user. Support English, Hindi, Hinglish.
+
+CORE RULES:
+- Read the user's question carefully and answer ONLY what they asked.
+- Never give a generic career guidance response when the user asked something specific.
+- Never fabricate jobs, salaries, government benefits, or eligibility criteria.
+- Never ask for information the user has already provided.
+- Always personalize responses using available user information.
+- Provide practical, actionable advice.
+- Keep responses concise, organized with bullet points, headings, and emojis.
+- End every response with 3-4 follow-up suggestions relevant to what the user asked.
+- Warn against scams, fake recruiters, and paid job offers where relevant.
+- For government schemes, always remind users to verify through official portals.
+
+RESPONSE FORMAT:
+- Use emojis for section headers.
+- Use bullet points and short paragraphs.
+- Keep language simple and accessible.
+- Be encouraging and build confidence.
+- ALWAYS directly answer the user's question first before adding any extra information.
+"""
+
+
+class GraniteService:
+    """Wrapper around IBM watsonx.ai Granite for SkillBridge AI"""
+
+    def __init__(self):
+        self.api_key   = os.getenv("IBM_CLOUD_API_KEY", "")
+        self.project_id = os.getenv("PROJECT_ID", "")
+        self.model_id  = os.getenv("MODEL_ID", "ibm/granite-13b-instruct-v2")
+        self.url       = os.getenv("IBM_WATSONX_URL", "https://us-south.ml.cloud.ibm.com")
+        self._model    = None
+        self._init_model()
+
+    def _init_model(self):
+        try:
+            if not self.api_key or not self.project_id:
+                logger.warning("IBM watsonx.ai credentials not configured. Using fallback mode.")
+                return
+
+            credentials = Credentials(url=self.url, api_key=self.api_key)
+
+            params = {
+                GenParams.MAX_NEW_TOKENS:      1024,
+                GenParams.MIN_NEW_TOKENS:      10,
+                GenParams.TEMPERATURE:         0.7,
+                GenParams.TOP_P:               0.9,
+                GenParams.TOP_K:               50,
+                GenParams.REPETITION_PENALTY:  1.1,
+                GenParams.STOP_SEQUENCES:      ["Human:", "User:"],
+            }
+
+            self._model = ModelInference(
+                model_id=self.model_id,
+                credentials=credentials,
+                project_id=self.project_id,
+                params=params,
+            )
+            logger.info(f"Granite model initialized: {self.model_id}")
+
+        except Exception as e:
+            logger.error(f"Failed to initialize Granite model: {e}")
+            self._model = None
+
+    def _build_prompt(self, system: str, user_message: str, history: list = None) -> str:
+        """Build a formatted prompt for Granite."""
+        prompt = f"{system}\n\n"
+        if history:
+            for msg in history[-6:]:
+                role    = msg.get("role", "user")
+                content = msg.get("content", "")
+                if role == "user":
+                    prompt += f"Human: {content}\n"
+                else:
+                    prompt += f"Assistant: {content}\n"
+        prompt += f"Human: {user_message}\nAssistant:"
+        return prompt
+
+    def _call_granite(self, prompt: str, max_tokens: int = 1024) -> str:
+        """Call the Granite model and return text response."""
+        if not self._model:
+            # Pass only the raw user message to fallback, NOT the full prompt
+            return None   # signal to caller to use targeted fallback
+        try:
+            response = self._model.generate_text(prompt=prompt)
+            text = (response or "").strip()
+            return text if text else None
+        except Exception as e:
+            logger.error(f"Granite API error: {e}")
+            return None
+
+    # ─────────────────────────────────────────────
+    # TARGETED FALLBACK — answers the ACTUAL question
+    # ─────────────────────────────────────────────
+    def _fallback_for_message(self, user_message: str, user_profile: dict = None) -> str:
+        """
+        Generate a response that directly answers the user's actual question.
+        Keyword matching is done ONLY against the user's message, never the system prompt.
+        """
+        msg = user_message.lower().strip()
+        profile = user_profile or {}
+
+        # ── Greeting ──────────────────────────────────────────────────────────
+        greet_words = ["hello", "hi", "hey", "namaste", "namaskar", "halo",
+                       "good morning", "good afternoon", "good evening",
+                       "हेलो", "नमस्ते", "हाय"]
+        if any(w in msg for w in greet_words) and len(msg.split()) <= 5:
+            name = profile.get("name", "")
+            greeting = f"Hello {name}! 👋" if name else "Hello! 👋"
+            return (
+                f"{greeting} I'm **SkillBridge AI** — your personal Career Mentor powered by IBM Granite.\n\n"
+                "I can help you with:\n\n"
+                "💼 **Finding jobs** that match your skills\n"
+                "🏛 **Government schemes** for free training and support\n"
+                "📚 **Skill development** — free courses and certifications\n"
+                "📝 **Resume building** — ATS-friendly tips\n"
+                "🎤 **Interview preparation** — practice Q&A\n"
+                "💰 **Financial guidance** — savings, banking, insurance\n\n"
+                "What would you like help with today? 😊\n\n"
+                "➡ **Quick start:** Tell me your current job, location, and career goal."
+            )
+
+        # ── Scam alert (check BEFORE job — "fake job scam" must not hit job block) ──
+        scam_words = ["scam", "fraud", "fake", "cheat", "payment for job",
+                      "pay for job", "job fee", "ठगी", "धोखा", "फर्जी"]
+        if any(w in msg for w in scam_words):
+            return (
+                "⚠️ **Job Scam Alert — Protect Yourself!**\n\n"
+                "**Signs of a fake job offer:**\n"
+                "• They ask you to **pay money** for registration, training, or ID card\n"
+                "• Job offer arrives without any interview\n"
+                "• Salary promised is unrealistically high (e.g., ₹50,000/day for simple work)\n"
+                "• They ask for your **Aadhaar, bank details, or OTP**\n"
+                "• Contact only via WhatsApp or unknown numbers — no office address\n\n"
+                "**How to stay safe:**\n"
+                "• **Never pay money for a job.** Real employers NEVER charge fees.\n"
+                "• Verify companies on Google before applying\n"
+                "• Use only trusted portals: Apna, WorkIndia, NCS Portal, Naukri\n"
+                "• If someone asks for OTP — hang up immediately\n"
+                "• Report scams to cybercrime.gov.in or call 1930\n\n"
+                "SkillBridge AI is 100% free. We will never ask for payment."
+            )
+
+        # ── Gig / freelance (check BEFORE job — "freelance work" must not hit job block) ──
+        gig_words = ["gig", "freelance", "part time", "part-time", "side job",
+                     "extra income", "work from home", "online work", "ghar se kaam",
+                     "घर से काम"]
+        if any(w in msg for w in gig_words):
+            return (
+                "🤝 **Gig Work & Freelance Opportunities**\n\n"
+                "**Popular gig platforms in India:**\n\n"
+                "• **Delivery** — Swiggy, Zomato, Dunzo, Porter, Blinkit\n"
+                "• **Rides** — Ola, Uber, Rapido (bike taxi)\n"
+                "• **Home services** — Urban Company (electrician, plumber, cleaner)\n"
+                "• **Freelance tasks** — Fiverr, Upwork, Truelancer (design, writing, data entry)\n"
+                "• **Tutoring** — Vedantu, UrbanPro, local tuition\n"
+                "• **Daily labour** — BuildTrade, Apna (construction, hospitality)\n\n"
+                "**Tips for gig success:**\n"
+                "• Complete your profile 100% — more visibility, more work\n"
+                "• Collect good ratings — they lead to more orders\n"
+                "• Keep track of income for tax and loan purposes\n"
+                "• Join multiple platforms to maximize earnings\n\n"
+                "**Getting started:** Download the app → Register → Complete verification → Start earning!"
+            )
+
+        # ── Job search ────────────────────────────────────────────────────────
+        job_words = ["job", "naukri", "employment", "vacancy", "hiring",
+                     "find job", "job near", "job in", "jobs in", "job chahiye",
+                     "नौकरी", "काम", "रोजगार"]
+        if any(w in msg for w in job_words):
+            loc  = profile.get("location", "")
+            occ  = profile.get("occupation", "")
+            loc_str  = f" near {loc}" if loc else " in India"
+            occ_str  = f" for someone with experience in {occ}" if occ else ""
+            return (
+                f"💼 **Job Opportunities{loc_str}{occ_str}**\n\n"
+                "Here are high-demand jobs matching your profile:\n\n"
+                "• **Delivery Partner** — Swiggy, Zomato, Amazon, Blinkit\n"
+                "  💰 ₹15,000–₹25,000/month | No fixed education required\n"
+                "  ➡ Register on the company app or website\n\n"
+                "• **Retail Sales Associate** — Supermarkets, malls, local stores\n"
+                "  💰 ₹12,000–₹18,000/month | 10th pass preferred\n"
+                "  ➡ Apply on WorkIndia or visit stores directly\n\n"
+                "• **Security Guard** — Offices, malls, housing societies\n"
+                "  💰 ₹13,000–₹20,000/month | ESI + PF benefits\n"
+                "  ➡ Contact G4S, Securitas, or local agencies\n\n"
+                "• **Data Entry Operator** — Work from home or office\n"
+                "  💰 ₹10,000–₹18,000/month | Basic computer skills needed\n"
+                "  ➡ Apply on Naukri, Indeed, or LinkedIn\n\n"
+                "• **Electrician / Plumber** — Construction, housing\n"
+                "  💰 ₹18,000–₹35,000/month | ITI certificate preferred\n"
+                "  ➡ Register on UrbanClap / Urban Company\n\n"
+                "⚠️ **Safety:** Never pay money to get hired. All legitimate jobs are free.\n\n"
+                "🔍 **Free job portals:** Apna App · WorkIndia · NCS Portal (ncs.gov.in)"
+            )
+
+        # ── Government schemes ────────────────────────────────────────────────
+        scheme_words = ["scheme", "yojana", "government", "sarkar", "benefit",
+                        "subsidy", "sarkari", "pm scheme", "सरकारी", "योजना",
+                        "eshram", "mudra", "pmkvy", "jan dhan", "svanidhi"]
+        if any(w in msg for w in scheme_words):
+            return (
+                "🏛 **Government Support Schemes for You**\n\n"
+                "Here are the most relevant schemes:\n\n"
+                "**1. PM Kaushal Vikas Yojana (PMKVY)**\n"
+                "• Free skill training + government certificate + ₹8,000 reward\n"
+                "• For: Youth 15–45, school dropouts, informal workers\n"
+                "• Apply: skillindiadigital.gov.in\n\n"
+                "**2. e-Shram Portal**\n"
+                "• Free registration → ₹2 lakh accident insurance\n"
+                "• For: All unorganized workers aged 16–59\n"
+                "• Apply: eshram.gov.in\n\n"
+                "**3. PM Mudra Yojana**\n"
+                "• Business loans: ₹50,000 to ₹10 lakh (no collateral)\n"
+                "• For: Small business owners, self-employed\n"
+                "• Apply: Any bank or mudra.org.in\n\n"
+                "**4. PM SVANidhi** (Street Vendors)\n"
+                "• Micro-credit ₹10,000 → ₹50,000 for street vendors\n"
+                "• Apply: pmsvanidhi.mohua.gov.in\n\n"
+                "**5. PM Jan Dhan Yojana**\n"
+                "• Zero-balance bank account + RuPay card + ₹1L insurance\n"
+                "• Apply: Any bank with Aadhaar card\n\n"
+                "⚠️ *Always verify current eligibility at official government portals before applying.*"
+            )
+
+        # ── Skills / learning ─────────────────────────────────────────────────
+        skill_words = ["skill", "learn", "course", "training", "sikhna", "seekhna",
+                       "certificate", "certification", "study", "सीखना", "कौशल",
+                       "how to learn", "free course", "online course"]
+        if any(w in msg for w in skill_words):
+            goal = profile.get("career_goal", "")
+            goal_str = f" for {goal}" if goal else ""
+            return (
+                f"📚 **Free Skill Development{goal_str}**\n\n"
+                "**Top free learning platforms:**\n\n"
+                "• **SWAYAM** (swayam.gov.in) — Government-certified free courses\n"
+                "• **Skill India Digital** (skillindiadigital.gov.in) — Industry courses\n"
+                "• **PMKVY Training Centers** — Free hands-on training near you\n"
+                "• **Google Career Certificates** — Digital marketing, IT support\n"
+                "• **YouTube** — Free tutorials in Hindi & English for any skill\n"
+                "• **NASSCOM FutureSkills** — Tech and digital skills\n\n"
+                "**🎯 Priority skills for better income:**\n"
+                "• Digital literacy (smartphone, apps, UPI payments)\n"
+                "• English communication basics\n"
+                "• Computer / MS Office basics\n"
+                "• Customer service and communication\n\n"
+                "⏳ Most courses take **4–12 weeks** with 1 hour daily practice.\n"
+                "🏅 PMKVY gives a **government-recognized certificate** — completely free!"
+            )
+
+        # ── Resume ────────────────────────────────────────────────────────────
+        resume_words = ["resume", "cv", "biodata", "bio data", "resume banao",
+                        "resume kaise", "रिज्यूमे", "बायोडाटा"]
+        if any(w in msg for w in resume_words):
+            return (
+                "📝 **Resume Building Guide**\n\n"
+                "**Structure your resume like this:**\n\n"
+                "1️⃣ **Contact Info** — Name, phone, email, city\n"
+                "2️⃣ **Professional Summary** — 2–3 lines: who you are + your goal\n"
+                "   *Example:* 'Experienced delivery worker with 3 years experience. Seeking stable logistics role.'\n\n"
+                "3️⃣ **Key Skills** — List 5–8 skills relevant to the job\n"
+                "4️⃣ **Work Experience** — Job title | Company | Dates | What you did\n"
+                "   *Tip:* Use numbers — 'Delivered 50+ orders daily'\n"
+                "5️⃣ **Education** — Highest qualification first\n"
+                "6️⃣ **Certifications** — Any PMKVY, driving license, etc.\n\n"
+                "**✅ ATS Tips (get past computer screening):**\n"
+                "• Use keywords from the job description\n"
+                "• Use simple fonts: Arial or Calibri, size 11–12\n"
+                "• Keep it to **1 page** for entry-level roles\n"
+                "• Save as PDF\n\n"
+                "**🆓 Free resume tools:** Resume.io · Canva · Naukri Resume Builder\n\n"
+                "💡 Go to the **Profile** page to use our ATS Resume Analyzer!"
+            )
+
+        # ── Interview prep ────────────────────────────────────────────────────
+        interview_words = ["interview", "prepare", "preparation", "mock interview",
+                           "interview question", "interview tips", "इंटरव्यू"]
+        if any(w in msg for w in interview_words):
+            return (
+                "🎤 **Interview Preparation Guide**\n\n"
+                "**Common questions & how to answer:**\n\n"
+                "**Q1: Tell me about yourself.**\n"
+                "→ Keep it under 2 minutes. Name → experience → key skills → goal.\n\n"
+                "**Q2: Why do you want this job?**\n"
+                "→ Research the company. Show how your skills fit their needs.\n\n"
+                "**Q3: What are your strengths?**\n"
+                "→ Pick 2–3 relevant skills: reliability, hard work, quick learner.\n\n"
+                "**Q4: What is your salary expectation?**\n"
+                "→ Give a range: 'I expect between ₹X–₹Y based on the role and my experience.'\n\n"
+                "**Q5: Where do you see yourself in 5 years?**\n"
+                "→ Show growth ambition within the company.\n\n"
+                "😊 **Confidence Tips:**\n"
+                "• Practice answers out loud before the interview\n"
+                "• Arrive 10 minutes early with extra resume copies\n"
+                "• Make eye contact and speak slowly and clearly\n"
+                "• Wear clean, pressed clothes — formal or neat semi-formal\n"
+                "• It's okay to pause and think before answering\n\n"
+                "💡 Use the **Profile → Interview Prep** section for role-specific practice!"
+            )
+
+        # ── Financial guidance ────────────────────────────────────────────────
+        finance_words = ["money", "savings", "save", "bank", "loan", "insurance",
+                         "paisa", "paise", "upi", "payment", "investment",
+                         "पैसा", "बचत", "बैंक", "financial"]
+        if any(w in msg for w in finance_words):
+            return (
+                "💰 **Financial Guidance for Workers**\n\n"
+                "**🏦 Banking Basics:**\n"
+                "• Open a **Jan Dhan account** at any bank — zero balance, free\n"
+                "• Link your Aadhaar to receive government benefits directly\n"
+                "• Use **UPI apps** (PhonePe, GPay, Paytm) for safe digital payments\n\n"
+                "**💵 Savings Tips:**\n"
+                "• Save at least **10% of every income** — even ₹500/month adds up\n"
+                "• Use **Recurring Deposits (RD)** at post office — safe, low minimum\n"
+                "• Avoid chit funds and informal money lenders — high risk!\n\n"
+                "**🛡 Insurance:**\n"
+                "• **PM Jeevan Jyoti Bima** — ₹2 lakh life cover for just ₹436/year\n"
+                "• **PM Suraksha Bima** — ₹2 lakh accident cover for just ₹20/year\n"
+                "• Register on **e-Shram** for free accident insurance\n\n"
+                "**💼 Loans:**\n"
+                "• **Mudra Loan** — up to ₹10 lakh for small business, no collateral\n"
+                "• Avoid private moneylenders — interest rates can trap you in debt\n\n"
+                "⚠️ *Never share your OTP, PIN, or Aadhaar number with anyone.*"
+            )
+
+        # ── Career roadmap ────────────────────────────────────────────────────
+        roadmap_words = ["roadmap", "career plan", "career path", "how to grow",
+                         "career goal", "career guidance", "career advice",
+                         "what should i do", "kya karu", "क्या करूं"]
+        if any(w in msg for w in roadmap_words):
+            occ  = profile.get("occupation", "your current role")
+            goal = profile.get("career_goal", "a better career")
+            return (
+                f"🎯 **Career Roadmap: {occ} → {goal}**\n\n"
+                "**Step-by-step plan:**\n\n"
+                "**📍 Today** — Complete your profile on SkillBridge AI\n"
+                "→ Add your skills, location, and career goal\n\n"
+                "**📅 Day 1–2** — Build your resume\n"
+                "→ Use free tools like Canva or Naukri Resume Builder\n\n"
+                "**📅 Week 1–4** — Learn new skills\n"
+                "→ Enroll in PMKVY or SWAYAM free courses\n\n"
+                "**📅 Week 2+** — Apply for jobs\n"
+                "→ Register on Apna, WorkIndia, and NCS Portal\n"
+                "→ Apply to at least 5 jobs per week\n\n"
+                "**📅 Before interview** — Practice\n"
+                "→ Use our Interview Coach for role-specific prep\n\n"
+                "**🎉 Goal** — Get hired and keep upskilling!\n\n"
+                "💡 *Visit the Dashboard to see your personalized roadmap and track progress.*"
+            )
+
+        # ── Salary questions ──────────────────────────────────────────────────
+        salary_words = ["salary", "pay", "income", "kitna milega", "wage",
+                        "कितना मिलेगा", "तनख्वाह", "वेतन", "how much earn"]
+        if any(w in msg for w in salary_words):
+            return (
+                "💰 **Salary Guide for Common Jobs in India (2024)**\n\n"
+                "| Job Role | Monthly Salary Range |\n"
+                "|---|---|\n"
+                "| Delivery Partner | ₹15,000 – ₹28,000 |\n"
+                "| Security Guard | ₹13,000 – ₹20,000 |\n"
+                "| Retail Sales | ₹12,000 – ₹20,000 |\n"
+                "| Electrician | ₹18,000 – ₹40,000 |\n"
+                "| Plumber | ₹15,000 – ₹35,000 |\n"
+                "| Cook / Chef | ₹12,000 – ₹35,000 |\n"
+                "| Driver (cab) | ₹18,000 – ₹35,000 |\n"
+                "| Data Entry | ₹10,000 – ₹18,000 |\n"
+                "| Tailor | ₹10,000 – ₹25,000 |\n"
+                "| Construction Labour | ₹500 – ₹800/day |\n\n"
+                "**💡 Tips to increase your income:**\n"
+                "• Get certified (PMKVY) — employers pay 20–40% more to certified workers\n"
+                "• Learn English communication — opens more opportunities\n"
+                "• Take on supervisory responsibility when ready\n"
+                "• Join the formal/organized sector for ESI + PF benefits\n\n"
+                "📍 *Salaries vary by city. Mumbai and Delhi typically pay 20–30% more.*"
+            )
+
+        # ── What can you do / help ────────────────────────────────────────────
+        help_words = ["what can you do", "how can you help", "what do you do",
+                      "help me", "help", "kya kar sakte", "क्या कर सकते", "guide me"]
+        if any(w in msg for w in help_words):
+            return (
+                "🤖 **How SkillBridge AI Can Help You**\n\n"
+                "I am your free AI Career Mentor. Here's everything I can do:\n\n"
+                "💼 **Jobs** — Find jobs matching your skills and location\n"
+                "🏛 **Government Schemes** — Discover PM schemes, free training, social security\n"
+                "📚 **Skills** — Get a personalized learning plan with free courses\n"
+                "📊 **Skill Gap** — Find out what skills you need for your dream job\n"
+                "📝 **Resume** — Build and improve your ATS-friendly resume\n"
+                "🎤 **Interview** — Practice questions and build confidence\n"
+                "💰 **Finance** — Banking, savings, insurance, digital payments\n"
+                "🎯 **Career Roadmap** — Step-by-step plan to reach your career goal\n"
+                "⚠️ **Scam Alert** — Identify and avoid fake job offers\n\n"
+                "💬 *Just type your question in English, Hindi, or Hinglish — I understand all!*"
+            )
+
+        # ── Default: treat it as a general career/life question ───────────────
+        q = user_message.strip()
+        return (
+            f"👋 Thank you for your question: **\"{q}\"**\n\n"
+            "I'm SkillBridge AI, your free Career Mentor. Let me help you!\n\n"
+            "Based on your question, here's my guidance:\n\n"
+            "• For **job search** — I can find jobs matching your skills and city\n"
+            "• For **government schemes** — I can list PM schemes you qualify for\n"
+            "• For **skill development** — I can suggest free courses and certifications\n"
+            "• For **resume help** — I can give ATS-friendly tips\n"
+            "• For **interview prep** — I can share practice questions\n\n"
+            "💡 *Please try asking more specifically, for example:*\n"
+            "→ \"Find delivery jobs in Mumbai\"\n"
+            "→ \"What government schemes am I eligible for?\"\n"
+            "→ \"How do I build a resume?\"\n"
+            "→ \"Prepare me for an interview as a security guard\"\n\n"
+            "I'm here to help! 😊"
+        )
+
+    # ─────────────────────────────────────────────
+    # CORE CHAT
+    # ─────────────────────────────────────────────
+    def chat(self, user_message: str, user_profile: dict, chat_history: list,
+             language: str, agent_instructions: dict) -> dict:
+        """Main chat handler — sends user message to Granite, falls back to targeted response."""
+
+        # Build profile context string
+        profile_context = ""
+        if user_profile:
+            parts = []
+            if user_profile.get("name"):       parts.append(f"Name: {user_profile['name']}")
+            if user_profile.get("occupation"): parts.append(f"Occupation: {user_profile['occupation']}")
+            if user_profile.get("location"):   parts.append(f"Location: {user_profile['location']}")
+            if user_profile.get("skills"):     parts.append(f"Skills: {user_profile['skills']}")
+            if user_profile.get("career_goal"):parts.append(f"Career Goal: {user_profile['career_goal']}")
+            if user_profile.get("education"):  parts.append(f"Education: {user_profile['education']}")
+            profile_context = " | ".join(parts)
+
+        lang_instruction = ""
+        if language == "hi":
+            lang_instruction = "IMPORTANT: Respond entirely in Hindi language.\n"
+        elif language == "hinglish":
+            lang_instruction = "IMPORTANT: Respond in Hinglish (natural mix of Hindi and English).\n"
+
+        # Assemble system section
+        system = SKILLBRIDGE_SYSTEM_PROMPT
+        if profile_context:
+            system += f"\nUSER PROFILE: {profile_context}\n"
+        if lang_instruction:
+            system += f"\n{lang_instruction}"
+        system += f"\nPersonality: {agent_instructions.get('personality', '')}"
+        system += f"\nSafety rules: {agent_instructions.get('safety_rules', '')}"
+
+        # Detect intents from user message only
+        intents = self._detect_intents(user_message)
+
+        # Build and call Granite
+        prompt = self._build_prompt(system, user_message, chat_history)
+        reply  = self._call_granite(prompt, max_tokens=1024)
+
+        # If Granite unavailable or returned empty — use targeted fallback
+        if not reply:
+            reply = self._fallback_for_message(user_message, user_profile)
+
+        suggestions = self._generate_suggestions(intents)
+
+        return {
+            "reply":       reply,
+            "intents":     intents,
+            "suggestions": suggestions,
+        }
+
+    def _detect_intents(self, message: str) -> list:
+        """Detect intents from user message ONLY."""
+        msg = message.lower()
+        intents = []
+        intent_map = {
+            "job":       ["job", "naukri", "work", "employment", "vacancy", "hiring",
+                          "jobs in", "job near", "नौकरी", "काम", "रोजगार"],
+            "skill":     ["skill", "learn", "course", "training", "sikhna", "seekhna",
+                          "certificate", "कौशल", "सीखना"],
+            "scheme":    ["scheme", "yojana", "government", "sarkar", "benefit",
+                          "subsidy", "sarkari", "सरकारी", "योजना"],
+            "resume":    ["resume", "cv", "biodata", "रिज्यूमे", "बायोडाटा"],
+            "interview": ["interview", "prepare", "preparation", "इंटरव्यू"],
+            "finance":   ["money", "savings", "bank", "loan", "insurance",
+                          "paisa", "upi", "पैसा", "बचत", "financial"],
+            "scam":      ["scam", "fraud", "fake", "cheat", "ठगी", "धोखा"],
+            "career":    ["career", "roadmap", "career plan", "career goal",
+                          "career advice", "guidance"],
+            "gig":       ["freelance", "gig", "part-time", "part time",
+                          "side job", "extra income"],
+            "salary":    ["salary", "pay", "income", "wage", "kitna milega",
+                          "वेतन", "तनख्वाह"],
+        }
+        for intent, keywords in intent_map.items():
+            if any(kw in msg for kw in keywords):
+                intents.append(intent)
+        if not intents:
+            intents = ["general"]
+        return intents
+
+    def _generate_suggestions(self, intents: list) -> list:
+        """Generate follow-up suggestion chips based on detected intents."""
+        suggestion_map = {
+            "job":       "💼 Find Nearby Jobs",
+            "skill":     "📚 Learn New Skills",
+            "scheme":    "🏛 Explore Government Support",
+            "resume":    "📝 Build My Resume",
+            "interview": "🎤 Prepare for Interview",
+            "finance":   "💰 Financial Guidance",
+            "career":    "🎯 View Career Roadmap",
+            "gig":       "🤝 Explore Gig Work",
+            "salary":    "💵 Check Salary Guide",
+            "scam":      "⚠️ Scam Safety Tips",
+            "general":   "👤 Complete My Profile",
+        }
+        result = []
+        for intent in intents[:2]:
+            chip = suggestion_map.get(intent)
+            if chip:
+                result.append(chip)
+        defaults = ["💼 Find Nearby Jobs", "📚 Learn New Skills",
+                    "🏛 Government Schemes", "📝 Build My Resume"]
+        for d in defaults:
+            if d not in result and len(result) < 4:
+                result.append(d)
+        return result[:4]
+
+    # ─────────────────────────────────────────────
+    # JOB RECOMMENDATIONS (Jobs page)
+    # ─────────────────────────────────────────────
+    def recommend_jobs(self, profile: dict, agent_instructions: dict) -> dict:
+        occupation = profile.get("occupation", "general worker")
+        skills     = profile.get("skills", "basic skills")
+        location   = profile.get("location", "India")
+        education  = profile.get("education", "10th pass")
+        goal       = profile.get("career_goal", "better job")
+
+        prompt = self._build_prompt(
+            SKILLBRIDGE_SYSTEM_PROMPT,
+            f"""Recommend 4 suitable jobs for:
+Occupation: {occupation} | Skills: {skills} | Location: {location}
+Education: {education} | Goal: {goal}
+
+Return a JSON array. Each item: title, industry, match_score, salary_range, required_skills (array), why_match, next_step.
+Respond with ONLY the JSON array, no extra text."""
+        )
+
+        raw = self._call_granite(prompt, max_tokens=1200)
+        if raw:
+            try:
+                m = re.search(r'\[.*\]', raw, re.DOTALL)
+                if m:
+                    return {"jobs": json.loads(m.group())}
+            except Exception:
+                pass
+
+        return {"jobs": [
+            {"title": "Delivery Partner", "industry": "Logistics & E-Commerce",
+             "match_score": 88, "salary_range": "₹15,000–₹25,000/month",
+             "required_skills": ["Two-wheeler riding", "Smartphone", "Navigation"],
+             "why_match": "High demand, flexible hours, no fixed education requirement.",
+             "next_step": "Register on Swiggy, Zomato, or Amazon Flex app."},
+            {"title": "Retail Sales Associate", "industry": "Retail",
+             "match_score": 82, "salary_range": "₹12,000–₹18,000/month",
+             "required_skills": ["Communication", "Basic math", "Customer service"],
+             "why_match": "Steady income, growth to supervisor roles.",
+             "next_step": "Apply on WorkIndia or visit local malls."},
+            {"title": "Security Guard", "industry": "Security Services",
+             "match_score": 78, "salary_range": "₹13,000–₹20,000/month",
+             "required_skills": ["Physical fitness", "Alertness", "Communication"],
+             "why_match": "Stable employment with ESI + PF benefits.",
+             "next_step": "Contact G4S, Securitas, or local security agencies."},
+            {"title": "Data Entry Operator", "industry": "IT / BPO",
+             "match_score": 72, "salary_range": "₹10,000–₹18,000/month",
+             "required_skills": ["Basic computer", "Typing", "Accuracy"],
+             "why_match": "Work from home options available, growing demand.",
+             "next_step": "Apply on Naukri.com or Indeed India."},
+        ]}
+
+    # ─────────────────────────────────────────────
+    # GOVERNMENT SCHEMES (Schemes page)
+    # ─────────────────────────────────────────────
+    def recommend_schemes(self, profile: dict, agent_instructions: dict) -> dict:
+        occupation = profile.get("occupation", "informal worker")
+        age        = profile.get("age", "adult")
+        gender     = profile.get("gender", "")
+        location   = profile.get("location", "India")
+
+        prompt = self._build_prompt(
+            SKILLBRIDGE_SYSTEM_PROMPT,
+            f"""Recommend 4 relevant Indian government schemes for:
+Occupation: {occupation} | Age: {age} | Gender: {gender} | Location: {location}
+
+Return a JSON array. Each item: name, purpose, beneficiaries, benefits, documents, how_to_apply, portal.
+Respond with ONLY the JSON array."""
+        )
+
+        raw = self._call_granite(prompt, max_tokens=1200)
+        if raw:
+            try:
+                m = re.search(r'\[.*\]', raw, re.DOTALL)
+                if m:
+                    return {"schemes": json.loads(m.group())}
+            except Exception:
+                pass
+
+        return {"schemes": [
+            {"name": "PM Kaushal Vikas Yojana (PMKVY)",
+             "purpose": "Free skill training and certification",
+             "beneficiaries": "Youth 15–45, informal workers",
+             "benefits": "Free training, certificate, ₹8,000 reward",
+             "documents": "Aadhaar Card, Bank Account, Photo",
+             "how_to_apply": "Visit nearest PMKVY center or skillindiadigital.gov.in",
+             "portal": "skillindiadigital.gov.in"},
+            {"name": "e-Shram Portal",
+             "purpose": "Social security for unorganized workers",
+             "beneficiaries": "All informal workers aged 16–59",
+             "benefits": "₹2 lakh accident insurance",
+             "documents": "Aadhaar Card, Aadhaar-linked mobile",
+             "how_to_apply": "Register at eshram.gov.in or CSC center",
+             "portal": "eshram.gov.in"},
+            {"name": "PM Mudra Yojana",
+             "purpose": "Business loans for micro-enterprises",
+             "beneficiaries": "Small business owners, self-employed",
+             "benefits": "Loans up to ₹10 lakh, no collateral",
+             "documents": "ID proof, address proof, business plan",
+             "how_to_apply": "Apply at any bank or mudra.org.in",
+             "portal": "mudra.org.in"},
+            {"name": "PM Jan Dhan Yojana",
+             "purpose": "Zero-balance bank account",
+             "beneficiaries": "All Indian citizens",
+             "benefits": "Free account, RuPay card, ₹1L accident insurance",
+             "documents": "Aadhaar or government ID",
+             "how_to_apply": "Visit nearest bank branch",
+             "portal": "pmjdy.gov.in"},
+        ]}
+
+    # ─────────────────────────────────────────────
+    # SKILL GAP ANALYSIS
+    # ─────────────────────────────────────────────
+    def analyze_skill_gap(self, profile: dict, goal: str, agent_instructions: dict) -> dict:
+        skills     = profile.get("skills", "")
+        occupation = profile.get("occupation", "")
+
+        prompt = self._build_prompt(
+            SKILLBRIDGE_SYSTEM_PROMPT,
+            f"""Analyze skill gap:
+Current Skills: {skills} | Current Job: {occupation} | Career Goal: {goal}
+
+Return JSON with keys: existing_skills (array), missing_skills (array), priority_skills (array),
+learning_time (string), certifications (array), tips (array).
+Respond with ONLY the JSON object."""
+        )
+
+        raw = self._call_granite(prompt, max_tokens=1000)
+        if raw:
+            try:
+                m = re.search(r'\{.*\}', raw, re.DOTALL)
+                if m:
+                    return {"analysis": json.loads(m.group())}
+            except Exception:
+                pass
+
+        return {"analysis": {
+            "existing_skills":  ["Basic communication", "Physical endurance", "Local area knowledge"],
+            "missing_skills":   ["Digital literacy", "English communication", "Computer basics"],
+            "priority_skills":  ["Smartphone & app usage", "Basic English", "UPI payments"],
+            "learning_time":    "4–8 weeks with 1 hour daily practice",
+            "certifications":   ["Google Digital Unlocked (free)", "PMKVY (free)"],
+            "tips": ["Start with free YouTube tutorials in Hindi",
+                     "Practice digital payments using PhonePe or GPay",
+                     "Join a local PMKVY training center for hands-on learning"],
+        }}
+
+    # ─────────────────────────────────────────────
+    # RESUME ANALYZER
+    # ─────────────────────────────────────────────
+    def analyze_resume(self, resume_text: str, profile: dict, agent_instructions: dict) -> dict:
+        if not resume_text:
+            return {
+                "score": 30, "strengths": [],
+                "improvements": ["Add a professional summary", "List your key skills",
+                                 "Include work experience with dates", "Add contact information"],
+                "ats_keywords": [], "suggested_summary": "",
+            }
+
+        prompt = self._build_prompt(
+            SKILLBRIDGE_SYSTEM_PROMPT,
+            f"""Analyze this resume and provide ATS feedback:
+
+RESUME:
+{resume_text[:2000]}
+
+Return JSON: score (0-100), strengths (array), improvements (array), ats_keywords (array), suggested_summary (string).
+Respond with ONLY the JSON object."""
+        )
+
+        raw = self._call_granite(prompt, max_tokens=900)
+        if raw:
+            try:
+                m = re.search(r'\{.*\}', raw, re.DOTALL)
+                if m:
+                    return json.loads(m.group())
+            except Exception:
+                pass
+
+        return {
+            "score": 55,
+            "strengths": ["Has work experience listed", "Contact information present"],
+            "improvements": [
+                "Add a professional summary at the top",
+                "Quantify achievements (e.g., served 50+ customers daily)",
+                "Use action verbs: managed, coordinated, achieved",
+                "Include relevant certifications",
+                "Keep to 1 page for entry-level",
+            ],
+            "ats_keywords": ["customer service", "teamwork", "reliability", "time management"],
+            "suggested_summary": "Dedicated worker with hands-on experience seeking stable employment.",
+        }
+
+    # ─────────────────────────────────────────────
+    # INTERVIEW PREP
+    # ─────────────────────────────────────────────
+    def interview_prep(self, job_role: str, profile: dict, agent_instructions: dict) -> dict:
+        prompt = self._build_prompt(
+            SKILLBRIDGE_SYSTEM_PROMPT,
+            f"""Generate interview preparation for the role: {job_role}
+User background: {profile.get('occupation', 'informal worker')}
+
+Return JSON: questions (array of {{question, answer}}), tips (array), dress_code (string), salary_tip (string).
+Respond with ONLY the JSON object."""
+        )
+
+        raw = self._call_granite(prompt, max_tokens=1100)
+        if raw:
+            try:
+                m = re.search(r'\{.*\}', raw, re.DOTALL)
+                if m:
+                    return json.loads(m.group())
+            except Exception:
+                pass
+
+        return {
+            "questions": [
+                {"question": "Tell me about yourself.",
+                 "answer": "Keep it under 2 minutes. Name → experience → skills → goal."},
+                {"question": "Why do you want this job?",
+                 "answer": "Show genuine interest. Mention how your skills match their needs."},
+                {"question": "What are your strengths?",
+                 "answer": "Reliability, hard work, quick learner — pick 2–3 relevant ones."},
+                {"question": "Where do you see yourself in 5 years?",
+                 "answer": "Show ambition: growing within this company, taking on responsibility."},
+                {"question": "What is your salary expectation?",
+                 "answer": "Give a range based on market research: 'I expect ₹X–₹Y for this role.'"},
+            ],
+            "tips": [
+                "Practice answers out loud the night before.",
+                "Arrive 10 minutes early with extra resume copies.",
+                "Make eye contact and speak slowly and clearly.",
+                "It's okay to pause and think before answering.",
+                "Follow up with a thank-you message after the interview.",
+            ],
+            "dress_code": "Wear clean, pressed formal or semi-formal clothes. Keep hair neat.",
+            "salary_tip": "Research market rate on Naukri or Glassdoor before negotiating.",
+        }
+
+    # ─────────────────────────────────────────────
+    # CAREER ROADMAP
+    # ─────────────────────────────────────────────
+    def generate_roadmap(self, profile: dict, agent_instructions: dict) -> dict:
+        goal       = profile.get("career_goal", "better employment")
+        occupation = profile.get("occupation", "informal worker")
+        skills     = profile.get("skills", "")
+
+        prompt = self._build_prompt(
+            SKILLBRIDGE_SYSTEM_PROMPT,
+            f"""Create a 6-step career roadmap for:
+Current: {occupation} | Goal: {goal} | Skills: {skills}
+
+Return JSON: {{roadmap: [{{step_number, title, description, duration, action_items}}]}}.
+Respond with ONLY the JSON object."""
+        )
+
+        raw = self._call_granite(prompt, max_tokens=1000)
+        if raw:
+            try:
+                m = re.search(r'\{.*\}', raw, re.DOTALL)
+                if m:
+                    return json.loads(m.group())
+            except Exception:
+                pass
+
+        return {"roadmap": [
+            {"step_number": 1, "title": "Complete Your Profile",
+             "description": "Fill in skills, location, and career goal.",
+             "duration": "Today", "action_items": ["Add skills", "Set career goal"]},
+            {"step_number": 2, "title": "Build Your Resume",
+             "description": "Create an ATS-friendly resume.",
+             "duration": "1–2 days", "action_items": ["Use Canva or Naukri Builder"]},
+            {"step_number": 3, "title": "Learn New Skills",
+             "description": "Take free courses to close skill gaps.",
+             "duration": "4–8 weeks", "action_items": ["Enroll in PMKVY", "SWAYAM courses"]},
+            {"step_number": 4, "title": "Apply for Jobs",
+             "description": "Apply on verified portals every day.",
+             "duration": "Ongoing", "action_items": ["Apna App", "WorkIndia", "NCS Portal"]},
+            {"step_number": 5, "title": "Ace the Interview",
+             "description": "Practice with AI Interview Coach.",
+             "duration": "Before interview", "action_items": ["Mock practice", "Prepare documents"]},
+            {"step_number": 6, "title": "Get Hired & Grow",
+             "description": "Start your new role and keep upskilling.",
+             "duration": "Ongoing", "action_items": ["Ask for feedback", "Set next goal"]},
+        ]}
+
+    # ─────────────────────────────────────────────
+    # DAILY CAREER TIP
+    # ─────────────────────────────────────────────
+    def get_daily_career_tip(self, language: str = "en") -> str:
+        import random
+        tips_en = [
+            "💡 Every skill you learn today is an investment in tomorrow's income.",
+            "💡 Register on e-Shram Portal — free ₹2 lakh accident insurance in 5 minutes!",
+            "💡 A clean, honest resume gets more interviews than an exaggerated one.",
+            "💡 Practice speaking English for 10 minutes daily — it opens many doors.",
+            "💡 Never pay money for a job offer. Genuine employers never charge fees.",
+            "💡 Save at least 10% of every income you earn, no matter how small.",
+            "💡 PMKVY offers free certified skill training near you — enroll today.",
+            "💡 Your network is your net worth — build good relationships at every job.",
+        ]
+        tips_hi = [
+            "💡 आज सीखा हर कौशल कल की आमदनी में निवेश है।",
+            "💡 ई-श्रम पोर्टल पर पंजीकरण करें — मुफ्त दुर्घटना बीमा पाएं।",
+            "💡 कभी भी नौकरी के लिए पैसे न दें। असली नियोक्ता कभी फीस नहीं मांगते।",
+            "💡 हर आमदनी का कम से कम 10% बचाएं।",
+        ]
+        if language == "hi":
+            return random.choice(tips_hi)
+        return random.choice(tips_en)
