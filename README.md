@@ -1,131 +1,600 @@
-# SkillBridge AI 🎯
-### **Empowering Informal Workers through Generative AI Mentorship**
-Built with **IBM watsonx.ai Granite** on **IBM Cloud**
+# 🎯 SkillBridge AI  
+## Empowering Informal Workers through Generative AI Mentorship
+
+<p align="center">
+  <b>Built with IBM watsonx.ai Granite on IBM Cloud ☁️</b>
+</p>
+
+<p align="center">
+  An AI-powered career mentorship ecosystem designed to empower informal workers through personalized guidance, skill development, job discovery, and welfare scheme awareness.
+</p>
+
 
 ---
 
-## 🌟 Overview
+# 🌟 Overview
 
-**SkillBridge AI** is an award-winning, inclusive career mentorship ecosystem specifically engineered for the informal labor economy. It serves as an AI-powered assistant for daily wage laborers, gig workers, artisans, street vendors, domestic workers, delivery partners, farmers, construction laborers, and unemployed youth. 
+**SkillBridge AI** is an inclusive **Generative AI-powered career mentorship platform** specifically engineered for the informal labor economy.
 
-By leveraging the enterprise-ready power of **IBM watsonx.ai Granite models**, SkillBridge AI democratizes career growth, helps optimize income potential, identifies skill deficiencies, and bridges the information asymmetry surrounding government welfare programs.
+Millions of informal workers including:
 
----
+- 👷 Daily wage laborers
+- 🎨 Artisans & craftsmen
+- 🛵 Gig workers
+- 🏪 Street vendors
+- 🏠 Domestic workers
+- 🚚 Delivery partners
+- 🌾 Farmers
+- 🏗 Construction workers
+- 🎓 Unemployed youth
 
-## ✨ System Blueprint
+face challenges in accessing:
 
-The architectural flow illustrates how user inputs move dynamically from frontend modules through the secure Flask orchestrator, updating session states and triggering discrete task vectors handled by the IBM watsonx.ai engine.
+- Employment opportunities
+- Skill development programs
+- Career guidance
+- Financial resources
+- Government welfare schemes
 
----
 
-## 🚀 Key Features
+SkillBridge AI bridges this information gap using **IBM watsonx.ai Granite foundation models** to provide:
 
-### 🧠 Core AI Capabilities
-* 🤖 **Context-Aware AI Mentor:** Hyper-personalized career advice driven by the `ibm/granite-13b-instruct-v2` foundational model.
-* 📊 **Dynamically Updated User Dashboard:** Real-time analytics tracking profile completeness, calculated resume scores, interview preparation readiness, and potential match tracking.
-* 🎯 **Visual Career Roadmaps:** Step-by-step career milestones mapped dynamically against the user's localized target goals.
-* 🔍 **Skill Gap & Curated Course Engine:** Algorithmic translation comparing a worker's current profile metrics against market requirements to flag actionable learning resources.
+✅ Personalized career mentorship  
+✅ Skill improvement recommendations  
+✅ Job matching assistance  
+✅ Resume optimization  
+✅ Interview preparation  
+✅ Government scheme discovery  
 
-### 💼 Career Tools
-* 💼 **Smart Job Profiling:** Hyper-localized recommendation matches tailored around explicit skill levels and logistical conditions.
-* 🏛 **Welfare Scheme Discovery:** Personalized lookup engine highlighting matching Central & State government programs (e.g., PM schemes) with absolute safety limits against data hallucination.
-* 📝 **ATS-Optimized Resume Analysis:** Direct string parsing engine grading resumes against career paths and outputting corrective feedback.
-* 🎤 **Interactive Interview Coach:** Role-specific mock interview question sets complete with confidence tips and behavioral guidelines.
-
-### 🌐 Inclusivity & Accessibility Add-ons
-* 🎙 **Voice-to-Text Inputs:** Native microphone capture designed for low-literacy accessibility.
-* 🌐 **Native Multilingual UI:** Seamless support across English, Hindi, and colloquial Hinglish phrasing.
-* 🌙 **Adaptive Layouts:** Toggle-ready Dark Mode optimized for low-power mobile layouts.
-
----
-
-## 🛠 Technology Stack
-
-| Tier | Component Description |
-| :--- | :--- |
-| **Backend Core** | Python Flask 3.x (with isolated server-side `filesystem` state storage) |
-| **AI Orchestration** | IBM watsonx.ai foundational LLM client API wrapper |
-| **Model Node** | `ibm/granite-13b-instruct-v2` |
-| **Frontend Layout** | Bootstrap 5, HTML5 Semantics, Modern Vanilla JavaScript (ES6+) |
-| **Environment Control** | `python-dotenv` framework |
-| **Production WSGI** | Gunicorn (Green Unicorn HTTP Server) |
 
 ---
 
-## 📁 Project Workspace Anatomy
+# 🏗️ System Architecture
 
-```text
+The SkillBridge AI architecture follows a modular AI-agent workflow:
+
+```
+User Input
+     |
+     ↓
+Frontend Interface
+(HTML + Bootstrap + JavaScript)
+     |
+     ↓
+Flask AI Orchestrator
+(Session Management + API Routing)
+     |
+     ↓
+IBM watsonx.ai Granite Model
+(Generative AI Reasoning Engine)
+     |
+     ↓
+Personalized Career Insights
+(Job Matching / Resume / Skills / Schemes)
+```
+
+
+The system dynamically processes user information and triggers specialized task workflows handled by IBM Granite.
+
+
+---
+
+# 🚀 Key Features
+
+
+# 🧠 Core AI Capabilities
+
+
+## 🤖 Context-Aware AI Mentor
+
+Powered by:
+
+```
+IBM Granite Foundation Model
+ibm/granite-13b-instruct-v2
+```
+
+Provides:
+
+- Personalized career recommendations
+- Skill improvement guidance
+- Learning paths
+- Income growth strategies
+- Motivational support
+
+
+---
+
+## 📊 Dynamic User Dashboard
+
+Provides real-time tracking of:
+
+- Profile completion percentage
+- Resume score
+- Interview readiness
+- Skill development progress
+- Job match probability
+
+
+---
+
+## 🎯 Visual Career Roadmaps
+
+Creates personalized career journeys:
+
+Example:
+
+```
+Current Skill
+      ↓
+Skill Gap Detection
+      ↓
+Recommended Training
+      ↓
+Certification
+      ↓
+Job Opportunities
+      ↓
+Career Growth
+```
+
+
+---
+
+## 🔍 Skill Gap & Learning Engine
+
+Analyzes:
+
+- Existing worker skills
+- Market requirements
+- Industry trends
+
+and recommends:
+
+- Courses
+- Certifications
+- Training resources
+
+
+---
+
+# 💼 Career Assistance Tools
+
+
+## 💼 Smart Job Profiling
+
+Provides:
+
+- Skill-based job matching
+- Location-aware opportunities
+- Experience-based recommendations
+- Worker-friendly career options
+
+
+---
+
+## 🏛 Government Welfare Scheme Discovery
+
+Helps users discover relevant:
+
+- Central Government Schemes
+- State Government Schemes
+- Worker welfare programs
+
+
+Example:
+
+- PM schemes
+- Skill development initiatives
+- Employment support programs
+
+
+⚠️ Users are always advised to verify eligibility through official government portals.
+
+
+---
+
+## 📝 ATS Resume Analyzer
+
+Features:
+
+- Resume parsing
+- Career-specific scoring
+- Improvement suggestions
+- ATS optimization feedback
+
+
+---
+
+## 🎤 AI Interview Coach
+
+Provides:
+
+- Role-specific interview questions
+- Mock interview practice
+- Confidence improvement tips
+- Communication guidance
+
+
+---
+
+# 🌐 Accessibility & Inclusion Features
+
+
+## 🎙 Voice-to-Text Support
+
+Designed for low-literacy users:
+
+- Voice input capability
+- Natural conversation experience
+- Easier access for workers
+
+
+---
+
+## 🌎 Multilingual Interface
+
+Supports:
+
+- English
+- Hindi
+- Hinglish
+
+
+The AI responds in the user's preferred language.
+
+
+---
+
+## 🌙 Adaptive UI
+
+Includes:
+
+- Mobile-friendly layouts
+- Low-power device optimization
+- Dark mode compatibility
+
+
+---
+
+# 🛠️ Technology Stack
+
+
+| Layer | Technology |
+|---|---|
+| Backend | Python Flask 3.x |
+| AI Engine | IBM watsonx.ai Granite |
+| Foundation Model | ibm/granite-13b-instruct-v2 |
+| Frontend | HTML5 + Bootstrap 5 + JavaScript ES6 |
+| Environment Management | python-dotenv |
+| Deployment Server | Gunicorn |
+| Storage | Server-side filesystem session storage |
+
+
+---
+
+# 📁 Project Structure
+
+
+```
 SkillBridge-AI/
 │
-├── app.py                      # Flask Application Entry Point (Routing & API Endpoints)
-├── requirements.txt            # Python Dependencies Manifest
-├── README.md                   # Repository Documentation
-├── .env.example                # Blueprint for secure environment setups
+├── app.py
+│   └── Flask Application Entry Point
+│
+├── requirements.txt
+│   └── Python Dependencies
+│
+├── README.md
+│
+├── .env.example
 │
 ├── services/
-│   └── granite_service.py      # Core SDK implementation wrapper for IBM watsonx.ai
+│   └── granite_service.py
+│       └── IBM watsonx.ai Granite API Wrapper
 │
-├── templates/                  # Presentation Layers (JinJA2 Engine)
-│   ├── index.html              # Dynamic App Landing Frame
-│   ├── dashboard.html          # Performance Metrics Overview Control panel
-│   ├── chatbot.html            # Conversational Interface Canvas
-│   ├── jobs.html               # Targeted Placement Opportunities
-│   ├── schemes.html            # Validated Government Schemes Hub
-│   └── profile.html            # Profile Builder & Completeness Metric Module
+├── templates/
+│   │
+│   ├── index.html
+│   ├── dashboard.html
+│   ├── chatbot.html
+│   ├── jobs.html
+│   ├── schemes.html
+│   └── profile.html
 │
-└── static/                     # Global Static Materials Asset Pipeline
-    ├── css/style.css           # Global Stylesheets & Layout Modifiers
-    ├── js/script.js            # Client-side Core Logic & API Fetch Controllers
-    └── images/                 # Theme graphics
----
+└── static/
+    │
+    ├── css/
+    │   └── style.css
+    │
+    ├── js/
+    │   └── script.js
+    │
+    └── images/
+        └── Application Assets
+```
+
+
 ---
 
-## ⚡ Quick Start Deployment Guide
+# ⚡ Installation & Setup
 
-### 1. Clone & Access the Workspace
+
+## 1. Clone Repository
+
+
 ```bash
-git clone [https://github.com/your-username/skillbridge-ai.git](https://github.com/your-username/skillbridge-ai.git)
+git clone https://github.com/your-username/skillbridge-ai.git
+
 cd skillbridge-ai
-2. Isolate Dependencies (Virtual Environment)
-Bash
-# Initialize Environment
+```
+
+
+---
+
+## 2. Create Virtual Environment
+
+
+### Windows
+
+```bash
 python -m venv venv
 
-# Activate Environment (Linux/macOS)
-source venv/bin/activate
-
-# Activate Environment (Windows)
 venv\Scripts\activate
-3. Install Module Matrix
-Bash
+```
+
+
+### Linux / macOS
+
+```bash
+python -m venv venv
+
+source venv/bin/activate
+```
+
+
+---
+
+## 3. Install Dependencies
+
+
+```bash
 pip install --upgrade pip
+
 pip install -r requirements.txt
-4. Inject Local Environment Configuration
-Duplicate the configuration template file into an active configuration state:
+```
 
-Bash
-cp .env.example .env
-Populate the newly created .env parameters with your active parameters:
 
-Code snippet
+---
+
+# 🔐 Environment Configuration
+
+
+Create `.env` file:
+
+
+```env
 IBM_CLOUD_API_KEY=your_secure_ibm_cloud_api_key
-PROJECT_ID=your_watsonx_ai_project_guid
+
+PROJECT_ID=your_watsonx_project_id
+
 MODEL_ID=ibm/granite-13b-instruct-v2
-IBM_WATSONX_URL=[https://us-south.ml.cloud.ibm.com](https://us-south.ml.cloud.ibm.com)
-FLASK_SECRET_KEY=generate_a_secure_hex_key_here
+
+IBM_WATSONX_URL=https://us-south.ml.cloud.ibm.com
+
+FLASK_SECRET_KEY=your_secret_key
+
 FLASK_DEBUG=false
+
 PORT=5000
-5. Launch the Framework Locally
-Bash
+```
+
+
+---
+
+# ▶️ Run Application
+
+
+```bash
 python app.py
-Your service instance will instantly serve requests at: http://localhost:5000
-🔑 Provisioning IBM watsonx.ai InfrastructureAccess the Cloud Console: Create an IBM Cloud Instance at cloud.ibm.com.Launch the Workspace: Spin up a new watsonx.ai workspace via the IBM Data Platform.Generate Access Signatures: Navigate through Manage $\rightarrow$ Access (IAM) $\rightarrow$ API Keys to construct a private key.Acquire Project Guid: Extract the active PROJECT_ID parameter from your workspace configuration settings page.Apply these values directly to your local .env setup file.💡 Cost Efficiency Note: The basic entry tier includes free structural monthly platform compute credits allowing you to evaluation the Granite model array completely free.⚙️ Modifying Agent Operational DirectivesThe behavior, safety rails, and response design of the system can be customized inside app.py via the AGENT_INSTRUCTIONS structure:PythonAGENT_INSTRUCTIONS = {
-    "personality": "Friendly, professional, encouraging, respectful, patient, and motivational.",
-    "tone": "Warm and supportive. Use simple, clear language. Never condescending.",
-    "language": "Respond in the same language as the user. Support English, Hindi, Hinglish.",
-    "career_guidance_style": "Provide practical, actionable career advice...",
-    "government_scheme_logic": "Always remind users to verify eligibility through official portals...",
-    "safety_rules": "Always warn against fake recruiters, paid job offers, OTP scams...",
-    "response_style": "Use bullet points, short paragraphs, emojis for section headers..."
+```
+
+
+Application will start at:
+
+
+```
+http://localhost:5000
+```
+
+
+---
+
+# ☁️ IBM watsonx.ai Setup
+
+
+## Step 1
+
+Create IBM Cloud Account:
+
+```
+https://cloud.ibm.com
+```
+
+
+## Step 2
+
+Create:
+
+- watsonx.ai workspace
+- AI project
+
+
+## Step 3
+
+Generate API Key:
+
+```
+IAM → Access → API Keys
+```
+
+
+## Step 4
+
+Copy:
+
+- API Key
+- Project ID
+- Model ID
+
+
+into `.env` file.
+
+
+---
+
+# 💡 Cost Efficiency
+
+SkillBridge AI is designed using IBM Cloud Lite resources.
+
+Benefits:
+
+- Low-cost experimentation
+- Granite model evaluation support
+- Cloud-native deployment architecture
+
+
+---
+
+# ⚙️ AI Agent Configuration
+
+
+AI behavior can be customized using:
+
+```python
+AGENT_INSTRUCTIONS = {
+
+"personality":
+"Friendly, professional, encouraging, respectful and patient.",
+
+
+"tone":
+"Warm and supportive. Never condescending.",
+
+
+"language":
+"Support English, Hindi and Hinglish.",
+
+
+"career_guidance_style":
+"Provide practical actionable career advice.",
+
+
+"government_scheme_logic":
+"Always recommend official verification.",
+
+
+"safety_rules":
+"Warn users about fake recruiters, scams and OTP fraud.",
+
+
+"response_style":
+"Use bullet points and simple explanations."
+
 }
-🛡 Security Guardrails & Compliance🔒 Zero Hardcoded Secrets: Enforces strict execution containment by sourcing access tokens purely out of environmental scopes.🛡 Anti-Scam Mitigations: Programmatic filters detect high-risk phrases to automatically inject anti-fraud warning notes regarding recruitment scams and identity theft risks.🛑 Hallucination Shields: Specific validation rules prompt the model to append mandatory official registry lookup notices across all government scheme queries.📦 Payload Containment: Restricts web interface uploads strictly to a maximum size of 16MB to mitigate denial of service vectors.📄 LicensingDistributed under the MIT License. Check out LICENSE documentation file within the repository core for further information regarding open usage rights.Developed with ❤️ using IBM watsonx.ai Granite on IBM Cloud.
+```
+
+
+---
+
+# 🛡️ Security & Compliance
+
+
+## 🔒 Secure Secrets Management
+
+✔ No hardcoded API keys  
+✔ Environment-based configuration  
+
+
+---
+
+## 🛡 Anti-Scam Protection
+
+Detects risky patterns related to:
+
+- Fake recruiters
+- Paid job scams
+- Identity theft
+- OTP fraud
+
+
+---
+
+## 🛑 Hallucination Protection
+
+Government scheme responses include:
+
+- Verification reminders
+- Official portal recommendations
+- Safety checks
+
+
+---
+
+## 📦 Upload Protection
+
+Application enforces:
+
+```
+Maximum Upload Size: 16 MB
+```
+
+to prevent abuse and denial-of-service risks.
+
+
+---
+
+# 🌟 Future Enhancements
+
+
+Planned improvements:
+
+- Real-time job API integration
+- AI voice assistant
+- WhatsApp chatbot support
+- Regional language expansion
+- Blockchain-based skill certificates
+- Advanced AI career prediction
+
+
+---
+
+# 📜 License
+
+
+This project is licensed under the:
+
+```
+MIT License
+```
+
+
+You are free to use, modify, and distribute this project.
+
+
+---
+
+# 👨‍💻 Developed With ❤️
+
+
+Built using:
+
+- IBM watsonx.ai Granite
+- IBM Cloud
+- Python Flask
+- Generative AI
+
+
+## SkillBridge AI
+
+**Empowering Workers. Bridging Skills. Creating Opportunities. 🚀**
